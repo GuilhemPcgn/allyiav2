@@ -90,7 +90,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     signInWithApple: async () => {
         set({ loading: true, error: null });
         try {
-            const provider = new OAuthProvider('apple.coml ');
+            const provider = new OAuthProvider('apple.com');
             await signInWithPopup(auth, provider);
         } catch (error) {
             set({ error: getErrorMessage(error), loading: false });
