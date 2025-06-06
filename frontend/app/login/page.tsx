@@ -56,12 +56,21 @@ export default function LoginPage() {
                         <span className="forgot-password">
                             <a href="#">Forgot Password ?</a>
                         </span>
-                        <input 
-                            className="login-button" 
-                            type="submit" 
+                        <input
+                            className="login-button"
+                            type="submit"
                             defaultValue="Sign In"
                             disabled={loading}
                         />
+                        {error && (
+                            <p className="text-red-500 text-sm mt-2">{error}</p>
+                        )}
+                        <p className="mt-4 text-center text-sm">
+                            Pas encore de compte ?{' '}
+                            <Link href="/signup" className="text-blue-600 underline">
+                                Inscription
+                            </Link>
+                        </p>
                     </form>
                     <div className="social-account-container">
                         <span className="title">Or Sign in with</span>
