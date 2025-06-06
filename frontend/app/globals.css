@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --lavender: 250, 92%, 85%;
+  --lavender-dark: 250, 92%, 75%;
+  --mint: 165, 55%, 87%;
+  --peach: 15, 85%, 90%;
+  --background: 260, 25%, 98%;
+}
+
+@layer base {
+  body {
+    @apply bg-[hsl(var(--background))];
+  }
+}
+
+body {
+  @apply mt-16; /* Ajoute une marge de 1rem (16px) en haut */
+}
+
+@keyframes ping-slow {
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+@keyframes ping-slower {
+  75%, 100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+@keyframes breathe {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.9);
+  }
+}
+
+/* Permet de tourner la carte de 180° sur l’axe Y */
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+/* Cache la face arrière d’un élément 3D */
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+/* (Optionnel) Pour s’assurer que la transformation se fasse en 3D */
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+
+.animate-ping-slow {
+  animation: ping-slow 3s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.animate-ping-slower {
+  animation: ping-slower 3s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.animate-breathe {
+  animation: breathe 3s ease-in-out infinite;
+}
