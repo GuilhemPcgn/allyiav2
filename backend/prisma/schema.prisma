@@ -1,0 +1,97 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("PG_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            Int             @id @default(autoincrement())
+  firstname     String          @db.VarChar(100)
+  lastname      String          @db.VarChar(100)
+  email         String          @unique @db.VarChar(255)
+  phone         String?         @db.VarChar(20)
+  adress        String?         @db.VarChar(255)
+  birthdate     DateTime        @db.Date
+  sex           Sex
+  role          Role
+  password_hash String          @db.VarChar(255)
+  created_at    DateTime        @default(now())
+  authentifications Authentification[]
+  drug_intakes  DrugIntake[]
+  ordinances    Ordinance[]
+}
+
+model Authentification {
+  id            Int      @id @default(autoincrement())
+  user_id       Int
+  provider      String   @db.VarChar(50)
+  access_token  String   @db.Text
+  refresh_token String?  @db.Text
+  expires_at    DateTime
+  user          User     @relation(fields: [user_id], references: [id])
+}
+
+model Drug {
+  id            Int      @id @default(autoincrement())
+  name          String   @db.VarChar(255)
+  dosage        String?  @db.VarChar(50)
+  vidal_code    String   @unique @db.VarChar(50)
+  description   String?  @db.Text
+  side_effects  String?  @db.Text
+  drug_intakes  DrugIntake[]
+  prescriptions Prescription[]
+}
+
+model DrugIntake {
+  id          Int      @id @default(autoincrement())
+  user_id     Int
+  drug_id     Int
+  intake_date DateTime
+  status      IntakeStatus
+  user        User     @relation(fields: [user_id], references: [id])
+  drug        Drug     @relation(fields: [drug_id], references: [id])
+}
+
+model Ordinance {
+  id            Int           @id @default(autoincrement())
+  user_id       Int
+  date          DateTime      @db.Date
+  doctor        String        @db.VarChar(255)
+  scan_file     String?       @db.Text
+  qr_code       String?       @db.Text
+  text_analysis String?       @db.Text
+  date_analysis DateTime      @default(now())
+  user          User          @relation(fields: [user_id], references: [id])
+  prescriptions Prescription[]
+}
+
+model Prescription {
+  id           Int        @id @default(autoincrement())
+  ordinance_id Int
+  drug_id      Int
+  posology     String     @db.Text
+  time_lenght  String     @db.VarChar(50)
+  ordinance    Ordinance  @relation(fields: [ordinance_id], references: [id])
+  drug         Drug       @relation(fields: [drug_id], references: [id])
+}
+
+enum Sex {
+  Man
+  Woman
+  Other
+}
+
+enum Role {
+  Patient
+  Doctor
+  Pharmacist
+}
+
+enum IntakeStatus {
+  To_take
+  Taked
+  Forgotten
+}

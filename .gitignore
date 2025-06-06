@@ -1,0 +1,16 @@
+# Node
+node_modules
+npm-debug.log*
+
+# Environment variables
+.env
+
+# Mac
+.DS_Store
+
+# Prisma
+prisma/*/node_modules
+
+# Build output
+backend/dist
+frontend/.next
