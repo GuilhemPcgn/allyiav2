@@ -24,9 +24,11 @@
     "reset": "npx prisma migrate reset",
     "seed": "ts-node prisma/seed.ts"
   },
+  
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
   },
+  
   "dependencies": {
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
@@ -43,10 +45,15 @@
     "langchain": "^0.3.27",
     "multer": "^1.4.5-lts.1",
     "openai": "^5.1.1",
+<<<<<<< HEAD
+=======
+    "@techstark/opencv-js": "^4.11.0-release.1",
+>>>>>>> d7045de1c43784597e29528c4433059f13be46a4
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "tesseract.js": "^6.0.1"
   },
+  
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.18.0",
@@ -75,6 +82,7 @@
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.20.0"
   },
+  
   "jest": {
     "moduleFileExtensions": [
       "js",
