@@ -1,77 +1,118 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as Tesseract from 'tesseract.js';
-import * as cv from '@techstark/opencv-js';
-import Fuse from 'fuse.js';
-import { OpenAI } from 'langchain/llms/openai';
-import { PromptTemplate } from 'langchain/prompts';
-import { LLMChain } from 'langchain/chains';
+import { OpenAI } from '@langchain/openai';
+import { PromptTemplate } from '@langchain/core/prompts';
+import { RunnableSequence } from '@langchain/core/runnables';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import * as fs from 'fs';
 
 @Injectable()
 export class OrdinancesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
-  async processUpload(filePath: string, userId: number) {
-    const processedPath = this.preprocessImage(filePath);
-    const result = await Tesseract.recognize(processedPath, 'fra');
-    const text = result.data.text;
-    const analysis = await this.analyzeText(text);
-
-    const drugs = await this.prisma.drug.findMany();
-    const fuse = new Fuse(drugs, { keys: ['name'], threshold: 0.4 });
-    const found: typeof drugs = [];
-    for (const word of text.split(/\s+/)) {
-      const res = fuse.search(word);
-      if (res[0] && !found.some((d) => d.id === res[0].item.id)) {
-        found.push(res[0].item);
+  private findSimilarDrugs(text: string, drugs: any[]): any[] {
+    const found: any[] = [];
+    const words = text.toLowerCase().split(/\s+/);
+    
+    for (const drug of drugs) {
+      const drugName = drug.name.toLowerCase();
+      
+      // Vérifier si le nom du médicament est présent dans le texte
+      if (words.some(word => {
+        // Ignorer les mots trop courts
+        if (word.length < 3) return false;
+        // Vérifier si le mot est contenu dans le nom du médicament ou vice versa
+        return drugName.includes(word) || word.includes(drugName);
+      })) {
+        if (!found.some(d => d.id === drug.id)) {
+          found.push(drug);
+        }
       }
     }
-
-    const ordinance = await this.prisma.ordinance.create({
-      data: {
-        user_id: userId,
-        date: new Date(),
-        doctor: 'Inconnu',
-        scan_file: filePath,
-        text_analysis: analysis,
-      },
-    });
-
-    for (const drug of found) {
-      await this.prisma.prescription.create({
-        data: {
-          ordinance_id: ordinance.id,
-          drug_id: drug.id,
-          posology: '',
-          time_lenght: '',
-        },
-      });
-    }
-
-    return { ordinanceId: ordinance.id, drugs: found, analysis };
+    
+    return found;
   }
 
-  private preprocessImage(filePath: string): string {
-    const src = cv.imread(filePath);
-    cv.cvtColor(src, src, cv.COLOR_BGR2GRAY);
-    cv.threshold(src, src, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
-    const outPath = join(tmpdir(), `processed_${Date.now()}.png`);
-    cv.imwrite(outPath, src);
-    return outPath;
+  async processUpload(filePath: string, userId: number) {
+    try {
+      console.log('Début du traitement de l\'ordonnance:', filePath);
+      
+      // Vérifier si le fichier existe
+      if (!fs.existsSync(filePath)) {
+        throw new Error(`Fichier non trouvé: ${filePath}`);
+      }
+
+      // Utiliser directement Tesseract sans prétraitement OpenCV
+      const result = await Tesseract.recognize(filePath, 'fra', {
+        logger: m => console.log(m)
+      });
+      console.log('Texte extrait:', result.data.text);
+      
+      const text = result.data.text;
+      const analysis = await this.analyzeText(text);
+      console.log('Analyse du texte:', analysis);
+
+      const drugs = await this.prisma.drug.findMany();
+      console.log('Nombre de médicaments trouvés:', drugs.length);
+
+      const found = this.findSimilarDrugs(text, drugs);
+      console.log('Médicaments détectés:', found.length);
+
+      const ordinance = await this.prisma.ordinance.create({
+        data: {
+          user_id: userId,
+          date: new Date(),
+          doctor: 'Inconnu',
+          scan_file: filePath,
+          text_analysis: analysis,
+        },
+      });
+      console.log('Ordonnance créée:', ordinance.id);
+
+      for (const drug of found) {
+        await this.prisma.prescription.create({
+          data: {
+            ordinance_id: ordinance.id,
+            drug_id: drug.id,
+            posology: '',
+            time_lenght: '',
+          },
+        });
+      }
+      console.log('Prescriptions créées');
+
+      return { ordinanceId: ordinance.id, drugs: found, analysis };
+    } catch (error) {
+      console.error('Erreur dans processUpload:', error);
+      throw new InternalServerErrorException(
+        `Erreur lors du traitement de l'ordonnance: ${error.message}`
+      );
+    }
   }
 
   private async analyzeText(text: string): Promise<string> {
-    if (!process.env.OPENAI_API_KEY) return text;
-    const model = new OpenAI({ openAIApiKey: process.env.OPENAI_API_KEY });
-    const prompt = new PromptTemplate({
-      template:
-        'Analyse cette ordonnance et renvoie un JSON des médicaments et posologies:\n{input}',
-      inputVariables: ['input'],
-    });
-    const chain = new LLMChain({ llm: model, prompt });
-    const result = await chain.call({ input: text });
-    return result.text || text;
+    try {
+      if (!process.env.OPENAI_API_KEY) {
+        console.log('Pas de clé API OpenAI, retour du texte brut');
+        return text;
+      }
+
+      const model = new OpenAI({ openAIApiKey: process.env.OPENAI_API_KEY });
+      const prompt = new PromptTemplate({
+        template: 'Analyse cette ordonnance et renvoie un JSON des médicaments et posologies:\n{input}',
+        inputVariables: ['input'],
+      });
+
+      const chain = RunnableSequence.from([prompt, model]);
+      const result = await chain.invoke({ input: text });
+      console.log('Analyse OpenAI terminée');
+      
+      return typeof result === 'string' ? result : text;
+    } catch (error) {
+      console.error('Erreur dans analyzeText:', error);
+      return text; // En cas d'erreur, retourner le texte brut
+    }
   }
 }
