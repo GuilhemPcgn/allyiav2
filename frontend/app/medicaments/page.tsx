@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Search, MapPin } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -62,6 +62,37 @@ export default function Medicaments() {
     const [allMedicaments, setAllMedicaments] = useState<Medicament[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleUploadClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('userId', '1');
+
+        try {
+            const response = await fetch('http://localhost:5848/api/ordinances', {
+                method: 'POST',
+                body: formData,
+            });
+            if (response.ok) {
+                const data = await response.json();
+                const ids = data.drugs.map((d: Medicament) => d.id);
+                const meds = allMedicaments.filter((m) => ids.includes(m.id));
+                setSelectedMedicaments((prev) => [...prev, ...meds]);
+            }
+        } catch (err) {
+            console.error('Erreur upload ordonnance:', err);
+        } finally {
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
 
     // Chargement des médicaments depuis l'API
     useEffect(() => {
@@ -194,6 +225,19 @@ export default function Medicaments() {
                                     ))}
                                 </div>
                             )}
+                        </div>
+
+                        <div className="mb-6">
+                            <Button onClick={handleUploadClick}>
+                                Uploader une ordonnance
+                            </Button>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                className="hidden"
+                            />
                         </div>
 
                         {/* Slider affichant les médicaments ajoutés par l'utilisateur */}
