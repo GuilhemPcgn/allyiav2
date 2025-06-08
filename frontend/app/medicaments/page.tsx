@@ -31,7 +31,10 @@ interface Pharmacy {
     rating: number;
     reviewCount: number;
     hours: {
-        [key: string]: { open: string | null; close: string | null };
+        [key: string]: {
+            open?: string;
+            close?: string;
+        };
     };
     reviews: {
         id: string;
