@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as Tesseract from 'tesseract.js';
-import * as cv from 'opencv.js';
+import * as cv from '@techstark/opencv-js';
 import Fuse from 'fuse.js';
 import { OpenAI } from 'langchain/llms/openai';
 import { PromptTemplate } from 'langchain/prompts';
