@@ -12,6 +12,35 @@ import Dock from "@/components/Dock";
 import MedicamentCard from "@/components/MedicamentCard";
 import PharmacyList from "@/components/PharmacyList";
 
+interface Medicament {
+    id: number;
+    name: string;
+    dosage: string;
+    vidal_code: string;
+    description: string;
+    side_effects: string;
+}
+
+interface Pharmacy {
+    id: string;
+    name: string;
+    address: string;
+    distance: string;
+    isOpen: boolean;
+    position: { lat: number; lng: number };
+    rating: number;
+    reviewCount: number;
+    hours: {
+        [key: string]: { open: string | null; close: string | null };
+    };
+    reviews: {
+        id: string;
+        author: string;
+        rating: number;
+        date: string;
+        comment: string;
+    }[];
+}
 
 const mapContainerStyle = {
     width: "100%",
@@ -27,93 +56,51 @@ export default function Medicaments() {
     const [searchQuery, setSearchQuery] = useState("");
     const [addressQuery, setAddressQuery] = useState("");
     const [selectedTab, setSelectedTab] = useState("medicaments");
-    // Contient le médicament sélectionné dans le dropdown afin d'ouvrir le modal
     const [selectedMedicament, setSelectedMedicament] = useState<Medicament | null>(null);
-    // Tableau des médicaments ajoutés par l'utilisateur (affichés dans le slider)
     const [selectedMedicaments, setSelectedMedicaments] = useState<Medicament[]>([]);
-
-    const [pharmacies] = useState([
-        {
-            id: "1",
-            name: "Pharmacie du Centre",
-            address: "123 rue de Paris",
-            distance: "500m",
-            isOpen: true,
-            position: { lat: 48.8566, lng: 2.3522 },
-            rating: 4.5,
-            reviewCount: 127,
-            hours: {
-                lundi: { open: "09:00", close: "19:30" },
-                mardi: { open: "09:00", close: "19:30" },
-                mercredi: { open: "09:00", close: "19:30" },
-                jeudi: { open: "09:00", close: "19:30" },
-                vendredi: { open: "09:00", close: "19:30" },
-                samedi: { open: "09:30", close: "19:00" },
-                dimanche: { open: "10:00", close: "13:00" }
-            },
-            reviews: [
-                {
-                    id: "1",
-                    author: "Marie L.",
-                    rating: 5,
-                    date: "2024-01-15",
-                    comment: "Personnel très professionnel et de bon conseil."
-                },
-                {
-                    id: "2",
-                    author: "Pierre D.",
-                    rating: 4,
-                    date: "2024-01-10",
-                    comment: "Pharmacie bien située avec un large choix de produits."
-                }
-            ]
-        },
-        {
-            id: "2",
-            name: "Pharmacie de la Gare",
-            address: "45 avenue de la République",
-            distance: "750m",
-            isOpen: false,
-            position: { lat: 48.8576, lng: 2.3532 },
-            rating: 4.2,
-            reviewCount: 85,
-            hours: {
-                lundi: { open: "08:30", close: "20:00" },
-                mardi: { open: "08:30", close: "20:00" },
-                mercredi: { open: "08:30", close: "20:00" },
-                jeudi: { open: "08:30", close: "20:00" },
-                vendredi: { open: "08:30", close: "20:00" },
-                samedi: { open: "09:00", close: "19:30" },
-                dimanche: { open: null, close: null }
-            },
-            reviews: [
-                {
-                    id: "1",
-                    author: "Sophie M.",
-                    rating: 4,
-                    date: "2024-01-20",
-                    comment: "Service rapide et efficace."
-                },
-                {
-                    id: "2",
-                    author: "Jean R.",
-                    rating: 5,
-                    date: "2024-01-18",
-                    comment: "Équipe très sympathique et disponible."
-                }
-            ]
-        }
-    ]);
-
-    // Chargement du fichier JSON des médicaments (pour les suggestions)
+    const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
     const [allMedicaments, setAllMedicaments] = useState<Medicament[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    // Chargement des médicaments depuis l'API
     useEffect(() => {
-        fetch("/medicaments.json")
-            .then((res) => res.json())
-            .then((data) => setAllMedicaments(data))
-            .catch((error) =>
-                console.error("Erreur lors du chargement des médicaments :", error)
-            );
+        const fetchMedicaments = async () => {
+            try {
+                const response = await fetch('http://localhost:5848/api/drugs');
+                if (!response.ok) {
+                    throw new Error('Erreur lors du chargement des médicaments');
+                }
+                const data = await response.json();
+                setAllMedicaments(data);
+            } catch (error) {
+                console.error('Erreur:', error);
+                setError('Impossible de charger les médicaments');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchMedicaments();
+    }, []);
+
+    // Chargement des pharmacies depuis l'API (à implémenter)
+    useEffect(() => {
+        const fetchPharmacies = async () => {
+            try {
+                const response = await fetch('http://localhost:5848/api/pharmacies');
+                if (!response.ok) {
+                    throw new Error('Erreur lors du chargement des pharmacies');
+                }
+                const data = await response.json();
+                setPharmacies(data);
+            } catch (error) {
+                console.error('Erreur:', error);
+                setError('Impossible de charger les pharmacies');
+            }
+        };
+
+        fetchPharmacies();
     }, []);
 
     // Filtrer les médicaments en fonction du texte saisi
@@ -135,6 +122,14 @@ export default function Medicaments() {
             );
         }
     };
+
+    if (loading) {
+        return <div>Chargement...</div>;
+    }
+
+    if (error) {
+        return <div>Erreur: {error}</div>;
+    }
 
     return (
         <div className="min-h-screen bg-[hsl(var(--background))]">

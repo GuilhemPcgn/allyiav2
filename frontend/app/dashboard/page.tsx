@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { User } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import Dock from "@/components/Dock";
@@ -14,50 +15,65 @@ import {
     ResponsiveContainer,
 } from "recharts";
 
-const data = [
-    {
-        jour: "Lundi",
-        humeur: 7,
-        anxiété: 4,
-        fatigue: 6,
-        pensées_positives: 8,
-        pensées_négatives: 3,
-    },
-    {
-        jour: "Mardi",
-        humeur: 6,
-        anxiété: 5,
-        fatigue: 7,
-        pensées_positives: 6,
-        pensées_négatives: 4,
-    },
-    {
-        jour: "Mercredi",
-        humeur: 8,
-        anxiété: 3,
-        fatigue: 5,
-        pensées_positives: 9,
-        pensées_négatives: 2,
-    },
-    {
-        jour: "Jeudi",
-        humeur: 7,
-        anxiété: 4,
-        fatigue: 6,
-        pensées_positives: 7,
-        pensées_négatives: 3,
-    },
-    {
-        jour: "Vendredi",
-        humeur: 9,
-        anxiété: 2,
-        fatigue: 4,
-        pensées_positives: 9,
-        pensées_négatives: 1,
-    },
-];
+interface MoodData {
+    jour: string;
+    humeur: number;
+    anxiété: number;
+    fatigue: number;
+    pensées_positives: number;
+    pensées_négatives: number;
+}
+
+interface UserProfile {
+    firstname: string;
+    lastname: string;
+    age: number;
+    city: string;
+}
 
 export default function Dashboard() {
+    const [moodData, setMoodData] = useState<MoodData[]>([]);
+    const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                // Récupération des données de mood
+                const moodResponse = await fetch('http://localhost:3000/api/mood-data');
+                if (!moodResponse.ok) {
+                    throw new Error('Erreur lors du chargement des données de mood');
+                }
+                const moodData = await moodResponse.json();
+                setMoodData(moodData);
+
+                // Récupération du profil utilisateur
+                const profileResponse = await fetch('http://localhost:3000/api/user/profile');
+                if (!profileResponse.ok) {
+                    throw new Error('Erreur lors du chargement du profil');
+                }
+                const profileData = await profileResponse.json();
+                setUserProfile(profileData);
+            } catch (error) {
+                console.error('Erreur:', error);
+                setError('Impossible de charger les données');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, []);
+
+    if (loading) {
+        return <div>Chargement...</div>;
+    }
+
+    if (error) {
+        return <div>Erreur: {error}</div>;
+    }
+
     return (
         <div className="min-h-screen bg-[hsl(var(--background))]">
             <Dock />
@@ -65,22 +81,28 @@ export default function Dashboard() {
             {/* Content */}
             <div className="p-8 pb-32 max-w-7xl mx-auto space-y-8">
                 {/* Profile Section */}
-                <div className="flex items-center gap-6 bg-white rounded-2xl p-6 shadow-sm">
-                    <div className="w-20 h-20 bg-[hsl(var(--lavender))] rounded-full flex items-center justify-center">
-                        <User className="w-10 h-10 text-gray-800" />
+                {userProfile && (
+                    <div className="flex items-center gap-6 bg-white rounded-2xl p-6 shadow-sm">
+                        <div className="w-20 h-20 bg-[hsl(var(--lavender))] rounded-full flex items-center justify-center">
+                            <User className="w-10 h-10 text-gray-800" />
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-semibold text-gray-800">
+                                {userProfile.firstname} {userProfile.lastname}
+                            </h2>
+                            <p className="text-gray-600">
+                                {userProfile.age} ans • {userProfile.city}
+                            </p>
+                        </div>
                     </div>
-                    <div>
-                        <h2 className="text-2xl font-semibold text-gray-800">Sophie Martin</h2>
-                        <p className="text-gray-600">26 ans • Paris</p>
-                    </div>
-                </div>
+                )}
 
                 {/* Graph Card */}
                 <Card className="p-6">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4">Suivi hebdomadaire</h3>
                     <div className="h-[400px]">
                         <ResponsiveContainer width="100%" height="100%">
-                            <ReChart data={data}>
+                            <ReChart data={moodData}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="jour" />
                                 <YAxis />
