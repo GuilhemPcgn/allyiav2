@@ -75,62 +75,73 @@ export default function Medicaments() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [isUploading, setIsUploading] = useState(false);
+    const cameraInputRef = useRef<HTMLInputElement>(null);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [detectedDrugs, setDetectedDrugs] = useState<DetectedDrug[]>([]);
+    const [ocrResult, setOcrResult] = useState<any>(null);
     const [showDrugForm, setShowDrugForm] = useState(false);
 
     const handleUploadClick = () => {
-        fileInputRef.current?.click();
+        // Affiche un menu pour choisir entre appareil photo ou fichier
+        const menu = document.createElement('div');
+        menu.style.position = 'fixed';
+        menu.style.left = '0';
+        menu.style.top = '0';
+        menu.style.width = '100vw';
+        menu.style.height = '100vh';
+        menu.style.background = 'rgba(0,0,0,0.3)';
+        menu.style.display = 'flex';
+        menu.style.alignItems = 'center';
+        menu.style.justifyContent = 'center';
+        menu.style.zIndex = '9999';
+        menu.innerHTML = `
+      <div style="background:white;padding:2rem;border-radius:1rem;display:flex;flex-direction:column;gap:1rem;min-width:250px;">
+        <button id="photoBtn" style="padding:0.5rem 1rem;font-size:1rem;">Prendre une photo</button>
+        <button id="fileBtn" style="padding:0.5rem 1rem;font-size:1rem;">Choisir un fichier</button>
+        <button id="cancelBtn" style="padding:0.5rem 1rem;font-size:1rem;">Annuler</button>
+      </div>
+    `;
+        document.body.appendChild(menu);
+        menu.querySelector('#photoBtn')?.addEventListener('click', () => {
+            cameraInputRef.current?.click();
+            document.body.removeChild(menu);
+        });
+        menu.querySelector('#fileBtn')?.addEventListener('click', () => {
+            fileInputRef.current?.click();
+            document.body.removeChild(menu);
+        });
+        menu.querySelector('#cancelBtn')?.addEventListener('click', () => {
+            document.body.removeChild(menu);
+        });
     };
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-
         setIsProcessing(true);
         setError(null);
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('userId', '1');
-
         try {
-            const response = await fetch('http://localhost:5848/ordinances', {
+            const response = await fetch('/api/ocr', {
                 method: 'POST',
                 body: formData,
             });
-            
             if (!response.ok) {
                 const errorData = await response.json().catch(() => null);
-                console.error("Réponse erreur ordonnance :", errorData, response.status, response.statusText);
                 throw new Error(
-                    errorData?.message || 
-                    `Erreur serveur: ${response.status} ${response.statusText}`
+                    errorData?.message || `Erreur serveur: ${response.status} ${response.statusText}`
                 );
             }
-
             const data = await response.json();
-            if (!data.drugs || !Array.isArray(data.drugs)) {
-                throw new Error('Format de réponse invalide');
-            }
-
-            setDetectedDrugs(data.drugs);
+            setOcrResult(data);
             setShowDrugForm(true);
         } catch (err) {
-            console.error('Erreur détaillée:', err);
             setError(err instanceof Error ? err.message : 'Erreur lors de l\'analyse de l\'ordonnance');
         } finally {
             setIsProcessing(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
+            if (cameraInputRef.current) cameraInputRef.current.value = '';
         }
-    };
-
-    const handleDrugFormSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        // Ici, vous pouvez ajouter la logique pour sauvegarder les modifications
-        setShowDrugForm(false);
-        // Recharger les médicaments
-        window.location.reload();
     };
 
     // Chargement des médicaments depuis l'API
@@ -236,61 +247,43 @@ export default function Medicaments() {
                 </div>
             )}
 
-            {/* Formulaire des médicaments détectés */}
+            {/* Formulaire de validation du médicament détecté */}
             <Dialog open={showDrugForm} onOpenChange={setShowDrugForm}>
-                <DialogContent className="max-w-2xl">
+                <DialogContent className="max-w-md">
                     <DialogHeader>
                         <DialogTitle>Médicaments détectés</DialogTitle>
                     </DialogHeader>
-                    <form onSubmit={handleDrugFormSubmit} className="space-y-6">
-                        {detectedDrugs.map((drug, index) => (
-                            <Card key={drug.id} className="p-4">
-                                <div className="space-y-4">
-                                    <h3 className="font-semibold">{drug.name}</h3>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor={`posology-${index}`}>Posologie</Label>
-                                            <Input
-                                                id={`posology-${index}`}
-                                                value={drug.posology || ''}
-                                                onChange={(e) => {
-                                                    const newDrugs = [...detectedDrugs];
-                                                    newDrugs[index].posology = e.target.value;
-                                                    setDetectedDrugs(newDrugs);
-                                                }}
-                                                placeholder="Ex: 1 comprimé matin et soir"
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor={`timeLength-${index}`}>Durée du traitement</Label>
-                                            <Input
-                                                id={`timeLength-${index}`}
-                                                value={drug.timeLength || ''}
-                                                onChange={(e) => {
-                                                    const newDrugs = [...detectedDrugs];
-                                                    newDrugs[index].timeLength = e.target.value;
-                                                    setDetectedDrugs(newDrugs);
-                                                }}
-                                                placeholder="Ex: 7 jours"
-                                            />
-                                        </div>
+                    {ocrResult && ocrResult.medicaments && (
+                        <div className="space-y-4">
+                            {ocrResult.medicaments.length > 0 ? (
+                                ocrResult.medicaments.map((item: any, idx: number) => (
+                                    <div key={idx} className="p-2 bg-gray-100 rounded">
+                                        <div><b>Nom :</b> {item.medicament}</div>
+                                        <div><b>Posologie :</b> {item.posologie}</div>
                                     </div>
-                                </div>
-                            </Card>
-                        ))}
-                        <div className="flex justify-end gap-4">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setShowDrugForm(false)}
-                            >
-                                Annuler
-                            </Button>
-                            <Button type="submit">
-                                Confirmer
+                                ))
+                            ) : (
+                                <div className="text-gray-500">Aucun médicament détecté.</div>
+                            )}
+                            <Button onClick={() => {
+                                // Ajouter tous les médicaments détectés à la liste
+                                setSelectedMedicaments((prev) => [
+                                    ...prev,
+                                    ...ocrResult.medicaments.map((item: any) => ({
+                                        id: Date.now() + Math.random(),
+                                        name: item.medicament,
+                                        dosage: item.posologie || '',
+                                        vidal_code: '',
+                                        description: '',
+                                        side_effects: ''
+                                    }))
+                                ]);
+                                setShowDrugForm(false);
+                            }}>
+                                Ajouter à mes médicaments
                             </Button>
                         </div>
-                    </form>
+                    )}
                 </DialogContent>
             </Dialog>
 
@@ -361,19 +354,10 @@ export default function Medicaments() {
                                 <Button 
                                     onClick={handleUploadClick}
                                     className="flex items-center gap-2"
-                                    disabled={isUploading}
+                                    disabled={false}
                                 >
-                                    {isUploading ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                            Analyse en cours...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Upload className="w-4 h-4" />
-                                            Scanner une ordonnance
-                                        </>
-                                    )}
+                                    <Upload className="w-4 h-4" />
+                                    Scanner une ordonnance
                                 </Button>
                                 <input
                                     type="file"
@@ -382,9 +366,17 @@ export default function Medicaments() {
                                     onChange={handleFileChange}
                                     className="hidden"
                                 />
-                                {error && (
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    capture="environment"
+                                    ref={cameraInputRef}
+                                    onChange={handleFileChange}
+                                    className="hidden"
+                                />
+                                {/* {error && (
                                     <p className="text-red-500 text-sm">{error}</p>
-                                )}
+                                )} */}
                             </div>
 
                             {/* Slider affichant les médicaments ajoutés par l'utilisateur */}

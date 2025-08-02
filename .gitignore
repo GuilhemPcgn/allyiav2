@@ -16,3 +16,7 @@ backend/dist
 frontend/.next
 backend/uploads/*
 !backend/uploads/.gitkeep
+
+# Environnement Python
+venv/
+IA/ocr_meds/venv/
